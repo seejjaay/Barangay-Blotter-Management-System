@@ -16,7 +16,7 @@ export function HeroBanner() {
       
       <div className="relative z-10 p-6 md:p-10 flex flex-col justify-end">
         <div className="inline-flex items-center bg-[#feb71a] text-[#1a1200] px-3 py-1 text-[9px] font-black tracking-[0.15em] uppercase w-fit mb-6 rounded-full shadow-sm font-sans">
-          MARCH 2026
+          {new Date().toLocaleString("en-US", { month: "long", year: "numeric" }).toUpperCase()}
         </div>
         <h2 className="font-sans text-3xl md:text-5xl lg:text-5xl font-bold leading-tight tracking-tight text-white mb-4">
           Ligtas ang Barangay, Ligtas ang Lahat.

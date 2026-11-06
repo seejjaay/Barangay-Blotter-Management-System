@@ -8,6 +8,12 @@ import { HeatMapPlaceholder } from "@/components/dashboard/heat-map-placeholder"
 import { RecentIncidentsTable } from "@/components/dashboard/recent-incidents-table"
 import Link from "next/link"
 
+// Month/year labels are computed per request instead of frozen at build time.
+export const dynamic = "force-dynamic"
+
+const monthYear = () =>
+  new Date().toLocaleString("en-US", { month: "long", year: "numeric" })
+
 function SectionHeader({ title, count, linkRef, linkText = "Tingnan Lahat" }: { title: string, count?: number, linkRef?: string, linkText?: string }) {
   return (
     <div className="flex items-end justify-between mb-5 mt-10 border-b border-border pb-3">
@@ -38,7 +44,7 @@ export default function DashboardPage() {
       {/* Main content — offset for sidebar width */}
       <div className="flex flex-1 flex-col pl-60">
         {/* Sticky Top Header */}
-        <PageHeader title="Dashboard Overview" subtitle="Brgy. Banay-Banay 2nd — March 2026" />
+        <PageHeader title="Dashboard Overview" subtitle={`Brgy. Banay-Banay 2nd — ${monthYear()}`} />
 
         {/* Scrollable main area */}
         <main className="flex-1 overflow-y-auto bg-background p-6 md:p-8 space-y-8">
