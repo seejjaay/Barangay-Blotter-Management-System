@@ -4,22 +4,46 @@ import { createSupabaseServer, createSupabaseAdmin } from './supabase-server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 
+// Server actions are callable as plain POST endpoints, so every admin action
+// must verify the caller itself rather than trusting the UI to hide buttons.
+async function requireAdmin(): Promise<{ error: string } | null> {
+  const supabase = await createSupabaseServer()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'You must be signed in.' }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, status')
+    .eq('id', user.id)
+    .single()
+
+  const allowed = profile?.role === 'Brgy. Captain' || profile?.role === 'Secretary'
+  if (!allowed || profile?.status !== 'Active') {
+    return { error: 'Only the Barangay Captain or Secretary can manage users.' }
+  }
+  return null
+}
+
+// Public sign-up is bootstrap-only: it works while no profiles exist, and the
+// first account becomes the Brgy. Captain. After that, accounts are created by
+// a Captain/Secretary through createUser(). The role is never taken from the client.
 export async function signUp(formData: {
   fullName: string
   email: string
   password: string
-  role: string
 }) {
   const supabaseAdmin = await createSupabaseAdmin()
 
-  // Map role values to display labels
-  const roleMap: Record<string, string> = {
-    'captain': 'Brgy. Captain',
-    'secretary': 'Secretary',
-    'desk-officer': 'Desk Officer',
+  const { count, error: countError } = await supabaseAdmin
+    .from('profiles')
+    .select('id', { count: 'exact', head: true })
+
+  if (countError) return { error: 'Could not verify setup state. Please try again.' }
+  if ((count ?? 0) > 0) {
+    return { error: 'Sign-up is closed. Ask the Barangay Captain or Secretary to create your account.' }
   }
 
-  const role = roleMap[formData.role] || formData.role
+  const role = 'Brgy. Captain'
 
   // 1. Create the user in Supabase Auth
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -142,6 +166,9 @@ export async function createUser(params: {
   role: string
   tempPassword: string
 }) {
+  const denied = await requireAdmin()
+  if (denied) return denied
+
   const supabaseAdmin = await createSupabaseAdmin()
   const supabase = await createSupabaseServer()
 
@@ -215,6 +242,9 @@ export async function createUser(params: {
 }
 
 export async function resetUserPassword(userId: string, userEmail: string) {
+  const denied = await requireAdmin()
+  if (denied) return denied
+
   const supabaseAdmin = await createSupabaseAdmin()
   const supabase = await createSupabaseServer()
 
@@ -256,6 +286,9 @@ export async function resetUserPassword(userId: string, userEmail: string) {
 }
 
 export async function revokeUserAccess(userId: string, userName: string) {
+  const denied = await requireAdmin()
+  if (denied) return denied
+
   const supabaseAdmin = await createSupabaseAdmin()
   const supabase = await createSupabaseServer()
 
@@ -292,6 +325,9 @@ export async function revokeUserAccess(userId: string, userName: string) {
 
 // NEW FUNCTION: To restore access when someone is already revoked
 export async function restoreUserAccess(userId: string, userName: string) {
+  const denied = await requireAdmin()
+  if (denied) return denied
+
   const supabaseAdmin = await createSupabaseAdmin()
   const supabase = await createSupabaseServer()
 

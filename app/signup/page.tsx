@@ -8,13 +8,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { signUp } from "@/lib/auth-actions"
 
@@ -23,7 +16,6 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [role, setRole] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -34,8 +26,7 @@ export default function SignUpPage() {
     fullName.trim() !== "" &&
     email.trim() !== "" &&
     password.length >= 6 &&
-    password === confirmPassword &&
-    role !== ""
+    password === confirmPassword
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -50,7 +41,7 @@ export default function SignUpPage() {
     setError(null)
 
     try {
-      const result = await signUp({ fullName, email, password, role })
+      const result = await signUp({ fullName, email, password })
       if (result?.error) {
         setError(result.error)
       } else {
@@ -258,16 +249,10 @@ export default function SignUpPage() {
                       <Label className="text-xs font-bold text-[#44474e] uppercase tracking-wider">
                         System Role
                       </Label>
-                      <Select value={role} onValueChange={setRole}>
-                        <SelectTrigger className="h-11 bg-[#f7f9fb] border-none text-foreground focus:ring-2 focus:ring-[#002576]">
-                          <SelectValue placeholder="Select role" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="captain">Brgy. Captain</SelectItem>
-                          <SelectItem value="secretary">Secretary</SelectItem>
-                          <SelectItem value="desk-officer">Desk Officer</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div className="h-11 px-3 flex items-center rounded-md bg-[#f7f9fb] text-sm text-foreground">
+                        Brgy. Captain
+                        <span className="ml-2 text-xs text-muted-foreground">(first account only)</span>
+                      </div>
                     </div>
                   </div>
 

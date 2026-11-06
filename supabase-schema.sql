@@ -1,6 +1,8 @@
 -- ============================================================
 -- Barangay Blotter Management System — Supabase Schema
--- Run this in the Supabase SQL Editor to create all tables.
+-- Run this once in the Supabase SQL Editor on a fresh project.
+-- Tables: profiles, blotter_records, audit_logs
+-- Reconstructed from what the app code reads/writes.
 -- ============================================================
 
 -- 1. Profiles (extends auth.users)
@@ -26,62 +28,84 @@ create policy "Users can update their own profile"
   to authenticated
   using (auth.uid() = id);
 
+-- service_role bypasses RLS anyway; kept explicit for clarity.
 create policy "Service role can manage all profiles"
   on public.profiles for all
   to service_role
   using (true);
 
--- 2. Incidents (blotter records)
-create table if not exists public.incidents (
-  id uuid primary key default gen_random_uuid(),
-  blotter_number text unique not null,
+-- 2. Blotter records
+-- id is a bigint identity: the UI renders it as BLT-<year>-<id padded to 4>.
+create table if not exists public.blotter_records (
+  id bigint generated always as identity primary key,
   complainant_name text not null,
+  complainant_age integer,
+  complainant_gender text,
   respondent_name text,
-  category text not null check (category in ('Theft', 'Noise Disturbance', 'Vandalism', 'Assault', 'Trespassing', 'Dispute', 'Other')),
-  description text,
-  severity text not null default 'low' check (severity in ('high', 'medium', 'low')),
-  status text not null default 'Pending' check (status in ('Pending', 'Under Investigation', 'Amicably Settled', 'Escalated to Police', 'Dismissed')),
-  zone text,
+  respondent_age integer,
+  respondent_gender text,
+  incident_type text not null,
+  location text,
+  narrative text,
+  status text not null default 'Open' check (status in ('Open', 'Investigating', 'Resolved')),
+  incident_date date,
   latitude double precision,
   longitude double precision,
-  created_at timestamptz default now(),
-  resolved_at timestamptz,
-  created_by uuid references public.profiles(id),
-  updated_at timestamptz default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
-alter table public.incidents enable row level security;
+alter table public.blotter_records enable row level security;
 
-create policy "Authenticated users can read incidents"
-  on public.incidents for select
+create policy "Authenticated users can read blotter records"
+  on public.blotter_records for select
   to authenticated
   using (true);
 
-create policy "Authenticated users can insert incidents"
-  on public.incidents for insert
+create policy "Authenticated users can insert blotter records"
+  on public.blotter_records for insert
   to authenticated
   with check (true);
 
-create policy "Authenticated users can update incidents"
-  on public.incidents for update
+create policy "Authenticated users can update blotter records"
+  on public.blotter_records for update
   to authenticated
   using (true);
 
-create policy "Authenticated users can delete incidents"
-  on public.incidents for delete
+create policy "Authenticated users can delete blotter records"
+  on public.blotter_records for delete
   to authenticated
   using (true);
 
--- 3. Audit Logs (immutable)
+-- Keep updated_at fresh (the dashboard uses updated_at - created_at
+-- as the resolution time for Resolved records).
+create or replace function public.handle_updated_at()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists on_blotter_record_updated on public.blotter_records;
+create trigger on_blotter_record_updated
+  before update on public.blotter_records
+  for each row execute procedure public.handle_updated_at();
+
+-- 3. Audit logs (immutable: no update/delete policies)
 create table if not exists public.audit_logs (
   id uuid primary key default gen_random_uuid(),
   timestamp timestamptz default now(),
   user_id text,
   user_name text not null default 'Unknown',
   action text not null check (action in (
-    'Login', 'Logout', 'Record Created', 'Record Edited',
-    'Record Deleted', 'Data Exported', 'Failed Login',
-    'Password Reset', 'User Created', 'Access Revoked'
+    'Login', 'Logout', 'Failed Login', 'Password Reset',
+    'Record Created', 'Record Edited', 'Record Deleted', 'Status Changed',
+    'Data Exported', 'Report Generated', 'Settlement Generated', 'Summons Generated',
+    'User Created', 'Access Revoked', 'Access Restored'
   )),
   details text,
   ip_address text default '0.0.0.0',
@@ -100,28 +124,11 @@ create policy "Authenticated users can insert audit logs"
   to authenticated
   with check (true);
 
--- Prevent updates and deletes on audit logs (immutable)
--- No update or delete policies = cannot modify once inserted
-
--- 4. Indexes for performance
-create index if not exists idx_incidents_created_at on public.incidents(created_at);
-create index if not exists idx_incidents_category on public.incidents(category);
-create index if not exists idx_incidents_severity on public.incidents(severity);
-create index if not exists idx_incidents_zone on public.incidents(zone);
-create index if not exists idx_incidents_status on public.incidents(status);
+-- 4. Indexes
+create index if not exists idx_blotter_created_at on public.blotter_records(created_at);
+create index if not exists idx_blotter_incident_type on public.blotter_records(incident_type);
+create index if not exists idx_blotter_status on public.blotter_records(status);
+create index if not exists idx_blotter_location on public.blotter_records(location);
 create index if not exists idx_audit_logs_timestamp on public.audit_logs(timestamp desc);
 create index if not exists idx_audit_logs_action on public.audit_logs(action);
 create index if not exists idx_audit_logs_user_id on public.audit_logs(user_id);
-
--- 5. Function to auto-update last_active on profiles
-create or replace function public.handle_updated_at()
-returns trigger as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$ language plpgsql;
-
-create trigger on_incident_updated
-  before update on public.incidents
-  for each row execute procedure public.handle_updated_at();

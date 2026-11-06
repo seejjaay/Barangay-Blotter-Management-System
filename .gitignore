@@ -9,3 +9,12 @@ node_modules/
 .env*.local
 .DS_Store
 .vercel
+
+# Local build artifacts / stale files
+build*.log
+build-log*.txt
+temp_*.ts
+*.tsbuildinfo
+.env.production
+pnpm-lock.yaml
+brag-output/
