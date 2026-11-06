@@ -202,13 +202,13 @@ export function MapCanvas({
         scrollWheelZoom={!preview}
         doubleClickZoom={!preview}
         touchZoom={!preview}
-        attributionControl={false}
+        attributionControl={true}
         className="h-full w-full"
         style={{ background: "var(--background)" }}
       >
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
 
         <FitBounds points={filtered} />
